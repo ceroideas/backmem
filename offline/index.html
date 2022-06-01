@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>MEM eConsulting!</title>
+    <link rel="icon" type="image/png" href="images/taskit-icon-512.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Roboto" rel="stylesheet">
+    <link rel="stylesheet" href="css/materialize.min.css">
+    <link rel="stylesheet" href="css/estilos.css">
+    <script src="upup.sw.min.js"></script>
+    <script src="upup.js"></script>
+    <script src="offline.js"></script>
+
+    <style>
+        .select-wrapper * { transition: none !important; transform: none !important; }
+    </style>
+  </head>
+  <body>
+      <div class="col s12 m8 l6">
+        
+        <div class="center" id="div-header">
+            <h4>MEM-eConsulting</h4>
+        </div>
+
+        <form action="https://betatestpro.com/backmem/public/api/savePointOffline" autocomplete="off" id="savePointOffline">
+            <table>
+                <tbody>
+                    
+                    <tr>
+                        <td>
+                        <select name="customer_id">
+                            <option value="" disabled selected> Cliente </option>
+                        </select>
+
+                        <button type="button" class="just-online btn waves-efect waves-light modal-trigger" href="#modal1">PUNTOS DEL CLIENTE</button>
+                        <button type="button" class="btn waves-efect waves-light" id="new_point">NUEVO PUNTO</button>
+                        </td>
+                    </tr>
+
+                    <tr><td> <input type="text" id="autocomplete" autocomplete="off" placeholder="Indicanos la dirección"> </td></tr>
+
+                </tbody>
+
+                <tbody>
+
+                    <input type="hidden" name="point_id">
+                    
+                    <input type="hidden" name="lat">
+                    <input type="hidden" name="lng">
+
+                    <tr><td> <input placeholder="Calle" name="street"> </td></tr>
+                    <tr><td> <input placeholder="Nº Exterior" name="n_exterior"> </td></tr>
+                    <tr><td> <input placeholder="Nº Interior" name="n_interior"> </td></tr>
+                    <tr><td> <input placeholder="Colonia" name="colony"> </td></tr>
+                    <tr><td> <input placeholder="Código Postal" name="cp"> </td></tr>
+                    <tr><td> <input placeholder="Entidad" name="entity"> </td></tr>
+                    <tr><td> <input placeholder="Municipio o Alcaldía" name="municipality"> </td></tr>
+                    <tr><td> <input placeholder="Responsable" name="responsable"> </td></tr>
+                    <tr><td> <select placeholder="Status" name="status">
+                        <option value="1">Visita al sitio</option>
+                        <option value="2">Medición servicios interiores</option>
+                        <option value="3">Medición legal</option>
+                        <option value="4">Levantamiento</option>
+                        <option value="5">Estudios y reportes</option>
+                    </select> </td></tr>
+                    <tr><td> <select placeholder="Nivel de cumplimiento" name="compliance">
+                        <option value="1">Cumple con CR</option>
+                        <option value="2">No cumple con CR</option>
+                    </select> </td></tr>
+                    <tr><td> <textarea class="materialize-textarea" placeholder="Ploblemática" name="troublesome"></textarea> </td></tr>
+
+                </tbody>
+
+                <tbody id="services">
+                </tbody>
+
+                <tbody id="procceses">
+                </tbody>
+            </table>
+
+            <button type="submit" style="width: 100%;" class="waves-effect waves-light btn">GUARDAR</button>
+
+            <br><br>
+        </form>
+      </div>
+
+      <div id="modal1" class="modal">
+        <div class="modal-content">
+          <h6>Puntos del cliente</h6>
+          <table>
+              <tbody id="points">
+                
+              </tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cerrar</a>
+        </div>
+      </div>
+
+      <script type="text/javascript" src='https://maps.google.com/maps/api/js?key=AIzaSyCysLSKrqHKdBaYLdEP6wqmBFNR-85sMHs&libraries=places'></script>
+      <script src="js/JQuery-3.5.1.min.js"></script>
+      <script src="js/materialize.min.js"></script>
+      <script defer src="js/tareas.js"></script>
+
+      <script>
+
+        var url = 'https://betatestpro.com/backmem/public/api/';
+        var services;
+
+        var net_status = 'online';
+
+
+        function getServices() {
+         $.get(url+'getServices',(data)=>{
+
+            services = data;
+            console.log(data);
+            localStorage.setItem('information',JSON.stringify(data));
+
+            setCustomers();
+            setServices();
+            setProcceses();
+
+            $('select').formSelect();
+
+         });
+        }
+
+        function uploadInformation(value) {
+         $.post(url+'uploadInformation',value, (data)=>{
+            console.log(data);
+         });
+        }
+
+        function uploadInformations(value) {
+         $.post(url+'uploadInformations',value, data=>{
+            console.log(data);
+         });
+        }
+
+        var loaded = false;
+
+        function handleOffline()
+        {
+            if (localStorage.getItem('offlineData')) {
+
+                var data = JSON.parse(localStorage.getItem('offlineData'));
+                
+                $.post(url+'savePointOffline', data, function(data, textStatus, xhr) {
+                        
+                    alert('Información offline guardada correctamente!');
+
+                    localStorage.removeItem('offlineData');
+                });
+            }
+        }
+
+        window.addEventListener("online", () => {
+            
+            $('#autocomplete').parent().parent().show();
+            $('.just-online').show();
+
+            if (!loaded) {
+                setTimeout(()=>{
+                    initAutocomplete();
+                },1000)
+                loaded = true;
+            }
+
+            handleOffline();
+
+        })
+
+        window.addEventListener("offline", () => {
+            
+
+            $('#autocomplete').parent().parent().hide();
+            $('.just-online').hide();
+
+            console.log('estamos offline');
+            net_status = 'offline';
+            alert('Trabajando en modo offline');
+
+        })
+
+        if (window.navigator.onLine) {
+            $('#autocomplete').parent().parent().show();
+            $('.just-online').show();
+            net_status = 'online';
+            getServices();
+            initAutocomplete();
+            loaded = true;
+
+            handleOffline();
+
+        }else{
+            $('#autocomplete').parent().parent().hide();
+            $('.just-online').hide();
+            net_status = 'offline';
+
+            alert('Trabajando en modo offline');
+
+            if (localStorage.getItem('information')) {
+                setCustomers();
+                setServices();
+                setProcceses();
+
+                $('select').formSelect();
+            }
+        }
+
+        var geocoder = new google.maps.Geocoder;
+        function initAutocomplete()
+        {
+            var geocoder = new google.maps.Geocoder;
+            
+            var input = document.querySelector('#autocomplete');
+            var countryRestrict = {'country': ['mx']};
+            var options = {
+              types: ['geocode']
+            };
+
+           var autocomplete = new google.maps.places.Autocomplete(input, options);
+
+            autocomplete.setComponentRestrictions(
+                  {'country': ['mx']});
+
+            let fillInAddress = ()=> {
+              // Get the place details from the autocomplete object.
+              var arr = autocomplete.getPlace();
+              console.log(arr);
+
+              latlng = {lat:arr.geometry.location.lat(),lng:arr.geometry.location.lng()};
+
+              geocoder.geocode({'location': latlng}, (results, status) => {
+                  if (status === 'OK') {
+                    if (results[0]) {
+                      
+                      // address = results[0].formatted_address;
+                      
+                      getAddress(results,arr);
+                    } else {
+                      window.alert('No results found');
+                    }
+                  } else {
+                    window.alert('Geocoder failed due to: ' + status);
+                  }
+                });
+
+            }
+
+            autocomplete.addListener('place_changed', fillInAddress);
+        }
+
+        function getAddress(arr,a)
+        {
+            var address = {};
+            address.lat = a.geometry.location.lat();
+            address.lng = a.geometry.location.lng();
+            console.log(arr);
+            if (arr.length) {
+
+              for (var i = 0; i < arr[0].address_components.length; i++) {
+
+                  let comp = arr[0].address_components[i];
+                  
+                  var addressType = comp.types[0];
+
+                  console.log(comp);
+
+                  if (addressType) {
+                    if (addressType == 'route') {
+                      address.street = comp.long_name; // calle
+
+                    }else if(addressType == 'locality'){
+                      address.municipality = comp.long_name; // municipio
+
+                    }else if(addressType == 'country'){
+                      address.country = comp.long_name; // pais
+
+                    }else if(addressType == 'postal_code'){
+                      address.cp = comp.long_name; // codigo postal
+
+                    }else if(addressType == 'political'){
+                      address.colony = comp.long_name; // colonia
+
+                    }else if(addressType == 'administrative_area_level_1'){
+                      address.entity = comp.long_name; // entidad
+                      
+                    }
+                  }
+              }
+            }
+
+            for (var i in address) {
+                $('[name="'+i+'"]').val(address[i]).trigger('change');
+            }
+
+        }
+
+        function getValue(name)
+        {
+            let value = "";
+            if (selected) {
+                $.each(JSON.parse(selected.services), function(index, val) {
+                    if (val['key'] == name) {
+                        value = val['value'];
+                    }
+
+                });
+            }else{
+                value = "";
+            }
+
+            return value;
+        }
+
+        function getValueP(name)
+        {
+            let value = "";
+            if (selected) {
+                $.each(JSON.parse(selected.processes), function(index, val) {
+                    if (val['key'] == name) {
+                        value = val['value'];
+                    }
+
+                });
+            }else{
+                value = "";
+            }
+
+            return value;
+        }
+
+        function setCustomers()
+        {
+            var html = '<option value="" disabled selected>Cliente</option>';
+
+            var customers = JSON.parse(localStorage.getItem('information')).customers;
+
+            $.each(customers, function(index, val) {
+                html += '<option value="'+val.id+'">'+val.id+' - '+val.name+'</option>';
+            });
+
+            console.log(customers);
+
+            $('[name="customer_id"]').html(html);
+            $('select').formSelect();
+        }
+
+        function setServices()
+        {
+            var html = '<tr><td> <h5>Servicios</h5> </td></tr>';
+
+            var services = JSON.parse(localStorage.getItem('information')).services;
+
+            $.each(services, function(index, val) {
+
+                html+=`<tr><td> <label>${val.label}</label>`;
+                 
+                 if (val.type == 'text') {
+                    html+=`<input type="text" data-key="${val.name}" value="`+getValue(val.name)+`" data-title="${val.label}" class="question form-control" placeholder="${val.placeholder}">`
+                 }else if (val.type == 'number') {
+                    html+=`<input type="number" data-key="${val.name}" value="`+getValue(val.name)+`" data-title="${val.label}" class="question form-control" placeholder="${val.placeholder}">`
+                 }else if (val.type == 'select') {
+
+                    var options = "";
+
+                    $.each(val.options, function(index, opt) {
+                        options += "<option "+(getValue(val.name) == opt.value ? "selected" : "")+">"+opt.value+"</option>";
+                    });
+
+                    html+=`<select data-key="${val.name}" data-title="${val.label}" class="question form-control">
+                        <option selected="" disabled=""></option>
+                        ${options}
+                    </select>`
+                 }
+
+                 html+= `</td></tr>`;
+
+            });
+
+            $('#services').html(html);
+        }
+
+        function setProcceses()
+        {
+            var html = '<tr><td> <h5>Proceso Operativo</h5> </td></tr>';
+
+            var sections = JSON.parse(localStorage.getItem('information')).sections;
+
+            $.each(sections, function(index, sec) {
+
+                html += `<tr><td> <h6>${sec.name}</h6> </td></tr>`;
+
+                $.each(sec.inputs, function(index, val) {
+
+                    html+=`<tr><td> <label>${val.label}</label>`;
+                     
+                     if (val.type == 'text') {
+                        html+=`<input type="text" data-key="${val.name}" value="`+getValueP(val.name)+`" data-title="${val.label}" class="processes form-control" placeholder="${val.placeholder}">`
+                     }else if (val.type == 'number') {
+                        html+=`<input type="number" data-key="${val.name}" value="`+getValueP(val.name)+`" data-title="${val.label}" class="processes form-control" placeholder="${val.placeholder}">`
+                     }else if (val.type == 'select') {
+
+                        var options = "";
+
+                        $.each(val.options, function(index, opt) {
+                            options += "<option "+(getValueP(val.name) == opt.value ? "selected" : "")+">"+opt.value+"</option>";
+                        });
+
+                        html+=`<select data-key="${val.name}" data-title="${val.label}" class="processes form-control">
+                            <option selected="" disabled=""></option>
+                            ${options}
+                        </select>`
+                     }
+
+                     html+= `</td></tr>`;
+
+                });
+            });
+
+            $('#procceses').html(html);
+        }
+
+        function getCustomerPoints(id)
+        {
+            $('#points').html("");
+            $.get(url+'getPoints/'+id, function(data) {
+                console.log(data);
+                var points = "";
+
+                $.each(data, function(index, val) {
+
+                    points+=`<div>
+                        <b>Calle:</b> ${val.street} <br>
+                        <b>Nº Exterior:</b> ${val.n_exterior} <br>
+                        <b>Colonia:</b> ${val.colony} <br>
+                        <b>Código Postal:</b> ${val.cp} <br>
+                        <b>Entidad:</b> ${val.entity} <br>
+                        <b>Municipio:</b> ${val.municipality} <br>`
+
+                        points+= "<button style='margin-top:8px' type='button' data-info='"+JSON.stringify(val)+"' class='select-this btn-small'>Seleccionar</button> <br><br>\
+                    </div>";
+
+                });
+                var html = `<tr>
+                    <td>
+                        ${points}
+                    </td>
+                </tr>`;
+
+                $('#points').html(html);
+
+                $('.select-this').click(selectThis);
+            });
+        }
+
+        $('.modal-trigger').click(function (e) {
+            let val = $('[name="customer_id"]').val();
+
+            if (val) {
+                getCustomerPoints(val);
+            }
+        });
+
+        $('select').formSelect();
+        $('.modal').modal();
+
+        var selected;
+
+        function selectThis() {
+            
+            selected = $(this).data('info');
+
+            var instance = M.Modal.getInstance($('.modal'));
+            instance.close();
+
+            $('[name="point_id"]').val(selected.id);
+            $('[name="street"]').val(selected.street);
+            $('[name="n_exterior"]').val(selected.n_exterior);
+            $('[name="n_interior"]').val(selected.n_interior);
+            $('[name="colony"]').val(selected.colony);
+            $('[name="cp"]').val(selected.cp);
+            $('[name="entity"]').val(selected.entity);
+            $('[name="municipality"]').val(selected.municipality);
+            $('[name="responsable"]').val(selected.responsable);
+            $('[name="status"]').val(selected.status);
+            $('[name="compliance"]').val(selected.compliance);
+            $('[name="troublesome"]').val(selected.troublesome);
+
+            setServices();
+            setProcceses();
+
+            $('#new_point').show();
+            $('select').formSelect();
+
+            console.log(selected);
+
+        }
+
+        function clearData(event) {
+
+            selected = null;
+
+            $('[name="point_id"]').val('');
+            $('[name="street"]').val('');
+            $('[name="n_exterior"]').val('');
+            $('[name="n_interior"]').val('');
+            $('[name="colony"]').val('');
+            $('[name="cp"]').val('');
+            $('[name="entity"]').val('');
+            $('[name="municipality"]').val('');
+            $('[name="responsable"]').val('');
+            $('[name="status"]').val('');
+            $('[name="compliance"]').val('');
+            $('[name="troublesome"]').val('');
+
+            setServices();
+            setProcceses();
+
+            $('#new_point').hide();
+            $('select').formSelect();
+
+        }
+
+        $('#new_point').click(clearData);
+
+        $('#new_point').hide();
+
+
+        $('#savePointOffline').submit(async function(event) {
+            event.preventDefault();
+
+            let direccion = "Calle "+$(this)[0].street.value+', '+$(this)[0].colony.value+', '+$(this)[0].municipality.value+', '+$(this)[0].municipality.value+', '+$(this)[0].cp.value;
+
+            var geocoder = new google.maps.Geocoder;
+
+            if (net_status == 'online') {
+
+                await geocoder
+                .geocode({ address: direccion })
+                .then(({ results }) => {
+                  $(this)[0].lat.value = results[0].geometry.location.lat();
+                  $(this)[0].lng.value = results[0].geometry.location.lng();
+                })
+                .catch((e) =>
+                  alert("Geocode was not successful for the following reason: " + e)
+                );
+            }
+
+            var data = $(this).serializeArray();
+
+            let services = [];
+            let processes = [];
+
+            let arr = Array.from($('.question'));
+            let prc = Array.from($('.processes'));
+
+            for (let i of arr) {
+                let tmp = {};
+                tmp.key = $(i).data('key');
+                tmp.title = $(i).data('title');
+                tmp.value = $(i).val();
+
+                services.push(tmp);
+            }
+
+            for (let i of prc) {
+                let tmp = {};
+                tmp.key = $(i).data('key');
+                tmp.title = $(i).data('title');
+                tmp.value = $(i).val();
+
+                processes.push(tmp);
+            }
+            
+            data.push({name:"services", value: JSON.stringify(services)});
+            data.push({name:"processes", value: JSON.stringify(processes)});
+
+            console.log(JSON.stringify(data));
+
+            if (net_status == 'online') {
+                $.post($(this).attr('action'), data, function(data, textStatus, xhr) {
+                    
+                    alert('Información guardada correctamente!');
+
+                    // clearData();
+                });
+            }else{
+
+                localStorage.setItem('offlineData',JSON.stringify(data));
+                alert('La información se guardará cuando se restablezca la conexión!');
+
+            }
+
+        });
+
+          
+      </script>
+  </body>
+</html>
